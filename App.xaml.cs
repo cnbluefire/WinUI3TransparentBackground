@@ -6,7 +6,6 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI.Xaml.Shapes;
-using Reloaded.Hooks;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -33,12 +32,6 @@ namespace WinUI3TransparentBackground
         /// </summary>
         public App()
         {
-            // 如果需要创建带有原生非客户区的透明窗口，则需要Hook CreateWindowExW api
-            // 使窗口具有WS_EX_NOREDIRECTIONBITMAP ExStyle。
-            
-            // 如果选择其他窗口透明方案如SetLayeredWindowAttributes等，则不需要Hook
-
-            HookHelper.AddHook();
             this.InitializeComponent();
         }
 
