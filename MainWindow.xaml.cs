@@ -1,3 +1,5 @@
+using HotLyric.Win32.Utils;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -14,6 +16,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using WinRT;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -29,23 +32,15 @@ namespace WinUI3TransparentBackground
         {
             this.InitializeComponent();
 
-            this.VisibilityChanged += MainWindow_VisibilityChanged;
+            TransparentHelper.SetTransparent(this, true);
         }
 
-        private void MainWindow_VisibilityChanged(object sender, WindowVisibilityChangedEventArgs args)
-        {
-            if (args.Visible)
-            {
-                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
-                {
-                    TransparentHelper.SetTransparent(this, true);
-                });
-            }
-        }
+        bool transparent = true;
 
         private void myButton_Click(object sender, RoutedEventArgs e)
         {
-            myButton.Content = "Clicked";
+            transparent = !transparent;
+            TransparentHelper.SetTransparent(this, transparent);
         }
     }
 }

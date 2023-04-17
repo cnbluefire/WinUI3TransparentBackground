@@ -1,9 +1,12 @@
-﻿using Microsoft.UI.Xaml;
+﻿using HotLyric.Win32.Utils;
+using Microsoft.UI.Composition;
+using Microsoft.UI.Xaml;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using WinRT;
 
 namespace WinUI3TransparentBackground
 {
@@ -11,42 +14,17 @@ namespace WinUI3TransparentBackground
     {
         public static void SetTransparent(Window window, bool isTransparent)
         {
-            var visual = GetBackgroundVisual(window);
+            var brushHolder = window.As<ICompositionSupportsSystemBackdrop>();
 
-            if (visual != null)
+            if (isTransparent)
             {
-                visual.IsVisible = !isTransparent;
+                var colorBrush = WindowsCompositionHelper.Compositor.CreateColorBrush(Windows.UI.Color.FromArgb(0, 255, 255, 255));
+                brushHolder.SystemBackdrop = colorBrush;
             }
-        }
-
-        private static Microsoft.UI.Composition.SpriteVisual GetBackgroundVisual(Window window)
-        {
-            var islands = Microsoft.UI.Content.ContentIsland.FindAllForCurrentThread();
-
-            var island = islands.FirstOrDefault(c => c.Window.WindowId == window.AppWindow.Id);
-
-            var visual = island?.Root as Microsoft.UI.Composition.ContainerVisual;
-
-            while (visual != null)
+            else
             {
-                if (visual.Children.Count == 1)
-                {
-                    visual = visual.Children.First() as Microsoft.UI.Composition.ContainerVisual;
-                }
-                else
-                {
-                    foreach (var item in visual.Children)
-                    {
-                        if (item is Microsoft.UI.Composition.SpriteVisual backgroundVisual)
-                        {
-                            return backgroundVisual;
-                        }
-                    }
-                    visual = null;
-                }
+                brushHolder.SystemBackdrop = null;
             }
-
-            return null;
         }
     }
 }
