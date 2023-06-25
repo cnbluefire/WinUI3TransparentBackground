@@ -1,6 +1,7 @@
 using HotLyric.Win32.Utils;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -12,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
@@ -30,57 +32,64 @@ namespace WinUI3TransparentBackground
     /// </summary>
     public sealed partial class MainWindow : Window
     {
-        private SUBCLASSPROC subClassProc;
         bool transparent = true;
+
+        ComCtl32.SUBCLASSPROC wndProcHandler;
 
         public MainWindow()
         {
             this.InitializeComponent();
 
-            subClassProc = new SUBCLASSPROC(SubClassWndProc);
+            this.ExtendsContentIntoTitleBar = true;
+            this.SetTitleBar(AppTitlebar);
 
             var windowHandle = new IntPtr((long)this.AppWindow.Id.Value);
-            SetWindowSubclass(windowHandle, subClassProc, 0, 0);
 
-            var exStyle = User32.GetWindowLongAuto(windowHandle, User32.WindowLongFlags.GWL_EXSTYLE).ToInt32();
-            if ((exStyle & (int)User32.WindowStylesEx.WS_EX_LAYERED) == 0)
+            DwmApi.DwmExtendFrameIntoClientArea(windowHandle, new DwmApi.MARGINS(0));
+            using var rgn = Gdi32.CreateRectRgn(-2, -2, -1, -1);
+            DwmApi.DwmEnableBlurBehindWindow(windowHandle, new DwmApi.DWM_BLURBEHIND(true)
             {
-                exStyle |= (int)User32.WindowStylesEx.WS_EX_LAYERED;
-                User32.SetWindowLong(windowHandle, User32.WindowLongFlags.GWL_EXSTYLE, exStyle);
-                User32.SetLayeredWindowAttributes(windowHandle, (uint)System.Drawing.ColorTranslator.ToWin32(System.Drawing.Color.FromArgb(255, 99, 99, 99)), 255, User32.LayeredWindowAttributes.LWA_COLORKEY);
-            }
-
+                dwFlags = DwmApi.DWM_BLURBEHIND_Mask.DWM_BB_ENABLE | DwmApi.DWM_BLURBEHIND_Mask.DWM_BB_BLURREGION,
+                hRgnBlur = rgn
+            });
             TransparentHelper.SetTransparent(this, true);
+
+            wndProcHandler = new ComCtl32.SUBCLASSPROC(WndProc);
+            ComCtl32.SetWindowSubclass(windowHandle, wndProcHandler, 1, IntPtr.Zero);
         }
 
-        private IntPtr SubClassWndProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, uint dwRefData)
+        private unsafe IntPtr WndProc(HWND hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, nuint uIdSubclass, IntPtr dwRefData)
         {
             if (uMsg == (uint)User32.WindowMessage.WM_ERASEBKGND)
             {
                 if (User32.GetClientRect(hWnd, out var rect))
                 {
-                    using var brush = Gdi32.CreateSolidBrush((uint)System.Drawing.ColorTranslator.ToWin32(System.Drawing.Color.FromArgb(255, 99, 99, 99)));
+                    using var brush = Gdi32.CreateSolidBrush(new COLORREF(0, 0, 0));
                     User32.FillRect(wParam, rect, brush);
                     return new IntPtr(1);
                 }
             }
+            else if (uMsg == (uint)User32.WindowMessage.WM_DWMCOMPOSITIONCHANGED)
+            {
+                DwmApi.DwmExtendFrameIntoClientArea(hWnd, new DwmApi.MARGINS(0));
+                using var rgn = Gdi32.CreateRectRgn(-2, -2, -1, -1);
+                DwmApi.DwmEnableBlurBehindWindow(hWnd, new DwmApi.DWM_BLURBEHIND(true)
+                {
+                    dwFlags = DwmApi.DWM_BLURBEHIND_Mask.DWM_BB_ENABLE | DwmApi.DWM_BLURBEHIND_Mask.DWM_BB_BLURREGION,
+                    hRgnBlur = rgn
+                });
 
-            return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+                return IntPtr.Zero;
+            }
+
+            return ComCtl32.DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
 
         private void myButton_Click(object sender, RoutedEventArgs e)
         {
             transparent = !transparent;
             TransparentHelper.SetTransparent(this, transparent);
+            TitlebarBackground.Opacity = transparent ? 0 : 1;
         }
-
-        private delegate IntPtr SUBCLASSPROC(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, IntPtr uIdSubclass, uint dwRefData);
-
-        [DllImport("Comctl32.dll", SetLastError = true)]
-        private static extern IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
-
-        [DllImport("Comctl32.dll", SetLastError = true)]
-        private static extern bool SetWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass, uint dwRefData);
-
     }
 }
