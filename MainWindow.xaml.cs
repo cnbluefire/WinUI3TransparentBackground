@@ -45,12 +45,12 @@ namespace WinUI3TransparentBackground
 
             var windowHandle = new IntPtr((long)this.AppWindow.Id.Value);
 
-            DwmApi.DwmExtendFrameIntoClientArea(windowHandle, new DwmApi.MARGINS(0));
             using var rgn = Gdi32.CreateRectRgn(-2, -2, -1, -1);
-            DwmApi.DwmEnableBlurBehindWindow(windowHandle, new DwmApi.DWM_BLURBEHIND(true)
+            DwmApi.DwmEnableBlurBehindWindow(windowHandle, new DwmApi.DWM_BLURBEHIND()
             {
                 dwFlags = DwmApi.DWM_BLURBEHIND_Mask.DWM_BB_ENABLE | DwmApi.DWM_BLURBEHIND_Mask.DWM_BB_BLURREGION,
-                hRgnBlur = rgn
+                fEnable = true,
+                hRgnBlur = rgn,
             });
             TransparentHelper.SetTransparent(this, true);
 
@@ -60,26 +60,14 @@ namespace WinUI3TransparentBackground
 
         private unsafe IntPtr WndProc(HWND hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, nuint uIdSubclass, IntPtr dwRefData)
         {
-            if (uMsg == (uint)User32.WindowMessage.WM_ERASEBKGND)
+            if (uMsg == (uint)User32.WindowMessage.WM_PAINT)
             {
-                if (User32.GetClientRect(hWnd, out var rect))
-                {
-                    using var brush = Gdi32.CreateSolidBrush(new COLORREF(0, 0, 0));
-                    User32.FillRect(wParam, rect, brush);
-                    return new IntPtr(1);
-                }
-            }
-            else if (uMsg == (uint)User32.WindowMessage.WM_DWMCOMPOSITIONCHANGED)
-            {
-                DwmApi.DwmExtendFrameIntoClientArea(hWnd, new DwmApi.MARGINS(0));
-                using var rgn = Gdi32.CreateRectRgn(-2, -2, -1, -1);
-                DwmApi.DwmEnableBlurBehindWindow(hWnd, new DwmApi.DWM_BLURBEHIND(true)
-                {
-                    dwFlags = DwmApi.DWM_BLURBEHIND_Mask.DWM_BB_ENABLE | DwmApi.DWM_BLURBEHIND_Mask.DWM_BB_BLURREGION,
-                    hRgnBlur = rgn
-                });
+                var hdc = User32.BeginPaint(hWnd, out var ps);
+                if (hdc.IsNull) return new IntPtr(0);
 
-                return IntPtr.Zero;
+                var brush = Gdi32.GetStockObject(Gdi32.StockObjectType.BLACK_BRUSH);
+                User32.FillRect(hdc, ps.rcPaint, brush);
+                return new IntPtr(1);
             }
 
             return ComCtl32.DefSubclassProc(hWnd, uMsg, wParam, lParam);
